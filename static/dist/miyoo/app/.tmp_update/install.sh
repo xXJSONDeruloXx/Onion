@@ -15,6 +15,7 @@ export PATH="$sysdir/bin:$PATH"
 unset LD_PRELOAD
 
 MODEL_MM=283
+MODEL_MMF=285
 MODEL_MMP=354
 
 install_ra=1
@@ -137,12 +138,30 @@ cleanup() {
     rm -f /mnt/SDCARD/miyoo354/app/MainUI
     rmdir /mnt/SDCARD/miyoo354/app
     rmdir /mnt/SDCARD/miyoo354
+
+    rm -f /mnt/SDCARD/miyoo285/app/MainUI 2> /dev/null
+    rmdir /mnt/SDCARD/miyoo285/app 2> /dev/null
+    rmdir /mnt/SDCARD/miyoo285 2> /dev/null
 }
 
 DEVICE_ID=0
 
 check_device_model() {
-    DEVICE_ID=$([ -f /customer/app/axp_test ] && echo $MODEL_MMP || echo $MODEL_MM)
+    my_model=$(strings -n 5 /customer/app/MainUI 2> /dev/null | grep -m1 '^MY[0-9][0-9][0-9]$')
+    case "$my_model" in
+        MY283)
+            DEVICE_ID=$MODEL_MM
+            ;;
+        MY285)
+            DEVICE_ID=$MODEL_MMF
+            ;;
+        MY354)
+            DEVICE_ID=$MODEL_MMP
+            ;;
+        *)
+            DEVICE_ID=$([ -f /customer/app/axp_test ] && echo $MODEL_MMP || echo $MODEL_MM)
+            ;;
+    esac
     echo -n "$DEVICE_ID" > /tmp/deviceModel
 }
 

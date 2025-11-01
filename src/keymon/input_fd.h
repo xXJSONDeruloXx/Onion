@@ -28,7 +28,8 @@
 // Global Variables
 static int input_fd;
 static struct input_event ev;
-static struct pollfd fds[1];
+static struct pollfd fds[2];
+static nfds_t fds_count = 1;
 static bool keyinput_disabled = false;
 static int ignore_queue[QUEUE_MAX][2];
 static int ignore_queue_count = 0;

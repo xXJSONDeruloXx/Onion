@@ -58,6 +58,90 @@ const int KONAMI_CODE[] = {HW_BTN_UP, HW_BTN_UP, HW_BTN_DOWN, HW_BTN_DOWN,
                            HW_BTN_B, HW_BTN_A};
 const int KONAMI_CODE_LENGTH = sizeof(KONAMI_CODE) / sizeof(KONAMI_CODE[0]);
 
+#ifdef PLATFORM_MIYOOMINI
+#define LID_PATH "/sys/devices/soc0/soc/soc:hall-mh248/hallvalue"
+
+static int lid_fd = -1;
+static bool lid_supported = false;
+static int lid_state = 1;
+static bool lid_sleeping = false;
+
+static int lid_read_state(void)
+{
+    if (lid_fd < 0)
+        return lid_state;
+
+    char buf[8] = {0};
+    if (lseek(lid_fd, 0, SEEK_SET) < 0)
+        return lid_state;
+
+    ssize_t len = read(lid_fd, buf, sizeof(buf) - 1);
+    if (len <= 0)
+        return lid_state;
+
+    buf[len] = '\0';
+    return atoi(buf);
+}
+
+static bool lid_process_event(bool from_suspend)
+{
+    if (!lid_supported)
+        return false;
+
+    if (fds_count < 2 || !(fds[1].revents & (POLLPRI | POLLERR)))
+        return false;
+
+    int new_state = lid_read_state();
+    fds[1].revents = 0;
+
+    if (new_state == lid_state)
+        return false;
+
+    lid_state = new_state;
+
+    if (lid_state == 0) {
+        if (!lid_sleeping && !from_suspend) {
+            lid_sleeping = true;
+            if (settings.disable_standby) {
+                deepsleep();
+            }
+            else {
+                turnOffScreen();
+            }
+        }
+        return false;
+    }
+
+    lid_sleeping = false;
+    return true;
+}
+
+static void lid_init(void)
+{
+    if (DEVICE_ID != MIYOO285)
+        return;
+    if (!exists(LID_PATH))
+        return;
+
+    lid_fd = open(LID_PATH, O_RDONLY);
+    if (lid_fd < 0)
+        return;
+
+    int flags = fcntl(lid_fd, F_GETFL, 0);
+    if (flags >= 0) {
+        fcntl(lid_fd, F_SETFL, flags | O_NONBLOCK);
+    }
+
+    lid_supported = true;
+    fds[1].fd = lid_fd;
+    fds[1].events = POLLPRI | POLLERR;
+    fds_count = 2;
+
+    lid_state = lid_read_state();
+    lid_sleeping = (lid_state == 0);
+}
+#endif
+
 void takeScreenshot(void)
 {
     super_short_pulse();
@@ -168,6 +252,14 @@ void resume(void)
 //
 void quit(int exitcode)
 {
+#ifdef PLATFORM_MIYOOMINI
+    if (lid_fd >= 0) {
+        close(lid_fd);
+        lid_fd = -1;
+    }
+    lid_supported = false;
+    fds_count = 1;
+#endif
     display_close();
     if (input_fd > 0)
         close(input_fd);
@@ -280,9 +372,17 @@ void suspend_exec(int timeout)
     uint32_t killexit = 0;
 
     while (1) {
-        int ready = poll(fds, 1, timeout);
+        int ready = poll(fds, fds_count, timeout);
 
         if (ready > 0) {
+#ifdef PLATFORM_MIYOOMINI
+            if (lid_process_event(true)) {
+                break;
+            }
+#endif
+            if (!(fds[0].revents & POLLIN))
+                continue;
+
             read(input_fd, &ev, sizeof(ev));
             if ((ev.type != EV_KEY) || (ev.value > REPEAT))
                 continue;
@@ -369,6 +469,7 @@ void cpuClockHotkey(int adjust)
     int max_cpu_clock;
     switch (DEVICE_ID) {
     case MIYOO354:
+    case MIYOO285:
         max_cpu_clock = 1800;
         break;
     case MIYOO283:
@@ -430,7 +531,7 @@ int main(void)
 
     getDeviceModel();
 
-    if (DEVICE_ID == MIYOO354) {
+    if (DEVICE_ID == MIYOO354 || DEVICE_ID == MIYOO285) {
         // set hardware poweroff time to 10s
         axp_write(0x36, axp_read(0x36) | 3);
     }
@@ -448,8 +549,13 @@ int main(void)
     // Prepare for Poll button input
     input_fd = open("/dev/input/event0", O_RDONLY);
     memset(&fds, 0, sizeof(fds));
+    fds_count = 1;
     fds[0].fd = input_fd;
     fds[0].events = POLLIN;
+
+#ifdef PLATFORM_MIYOOMINI
+    lid_init();
+#endif
 
     // Main Loop
     uint32_t button_flag = 0;
@@ -486,7 +592,12 @@ int main(void)
     time_t fav_last_modified = time(NULL);
 
     while (1) {
-        if (poll(fds, 1, (CHECK_SEC - elapsed_sec) * 1000) > 0) {
+        if (poll(fds, fds_count, (CHECK_SEC - elapsed_sec) * 1000) > 0) {
+#ifdef PLATFORM_MIYOOMINI
+            lid_process_event(false);
+#endif
+            if (!(fds[0].revents & POLLIN))
+                continue;
             if (!keyinput_isValid())
                 continue;
             val = ev.value;
@@ -618,7 +729,7 @@ int main(void)
                             setVolumeRaw(0, -3);
                         break;
                     case SELECT:
-                        if (DEVICE_ID == MIYOO354)
+                        if (DEVICE_ID == MIYOO354 || DEVICE_ID == MIYOO285)
                             break; // disable this shortcut for MMP
                         // SELECT + L2 : brightness down
                         if (config_flag_get(".altBrightness"))
@@ -656,7 +767,7 @@ int main(void)
                             setVolumeRaw(0, +3);
                         break;
                     case SELECT:
-                        if (DEVICE_ID == MIYOO354)
+                        if (DEVICE_ID == MIYOO354 || DEVICE_ID == MIYOO285)
                             break; // disable this shortcut for MMP
                         // SELECT + R2 : brightness up
                         if (config_flag_get(".altBrightness"))

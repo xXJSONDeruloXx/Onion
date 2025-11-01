@@ -8,13 +8,33 @@ logfile=$(basename "$0" .sh)
 . $sysdir/script/log.sh
 
 MODEL_MM=283
+MODEL_MMF=285
 MODEL_MMP=354
 screen_resolution="640x480"
 
 main() {
     # Set model ID
-    axp 0 > /dev/null
-    export DEVICE_ID=$([ $? -eq 0 ] && echo $MODEL_MMP || echo $MODEL_MM)
+    my_model=$(strings -n 5 /customer/app/MainUI 2> /dev/null | grep -m1 '^MY[0-9][0-9][0-9]$')
+    case "$my_model" in
+        MY283)
+            DEVICE_ID=$MODEL_MM
+            ;;
+        MY285)
+            DEVICE_ID=$MODEL_MMF
+            ;;
+        MY354)
+            DEVICE_ID=$MODEL_MMP
+            ;;
+        *)
+            axp 0 > /dev/null
+            DEVICE_ID=$([ $? -eq 0 ] && echo $MODEL_MMP || echo $MODEL_MM)
+            ;;
+    esac
+    export DEVICE_ID
+    if [ -z "$my_model" ]; then
+        my_model="MY${DEVICE_ID}"
+    fi
+    export MY_MODEL="$my_model"
     echo -n "$DEVICE_ID" > /tmp/deviceModel
 
     SERIAL_NUMBER=$(read_uuid)
@@ -45,7 +65,7 @@ main() {
     # Check is charging
     if [ $DEVICE_ID -eq $MODEL_MM ]; then
         is_charging=$(cat /sys/devices/gpiochip0/gpio/gpio59/value)
-    elif [ $DEVICE_ID -eq $MODEL_MMP ]; then
+    elif [ $DEVICE_ID -eq $MODEL_MMP ] || [ $DEVICE_ID -eq $MODEL_MMF ]; then
         axp_status="0x$(axp 0 | cut -d':' -f2)"
         is_charging=$([ $(($axp_status & 0x4)) -eq 4 ] && echo 1 || echo 0)
     fi
@@ -103,6 +123,12 @@ main() {
     if [ $DEVICE_ID -eq $MODEL_MMP ] && [ -f /mnt/SDCARD/RetroArch/retroarch_miyoo354 ]; then
         # Mount miyoo354 RA version
         mount -o bind /mnt/SDCARD/RetroArch/retroarch_miyoo354 /mnt/SDCARD/RetroArch/retroarch
+    elif [ $DEVICE_ID -eq $MODEL_MMF ]; then
+        if [ -f /mnt/SDCARD/RetroArch/retroarch_miyoo285 ]; then
+            mount -o bind /mnt/SDCARD/RetroArch/retroarch_miyoo285 /mnt/SDCARD/RetroArch/retroarch
+        elif [ -f /mnt/SDCARD/RetroArch/retroarch_miyoo354 ]; then
+            mount -o bind /mnt/SDCARD/RetroArch/retroarch_miyoo354 /mnt/SDCARD/RetroArch/retroarch
+        fi
     fi
 
     # Bind arcade name library to customer path
