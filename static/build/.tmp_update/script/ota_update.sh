@@ -174,8 +174,8 @@ download_update() {
 	if [ "$Mychoice" = "Yes" ]; then
 
 		echo -ne "\n${BLUE}================== CHECKDISK ==================${NC}\n"
-		/mnt/SDCARD/.tmp_update/script/stop_audioserver.sh > nul 2> nul # we need a maximum of memory available to run fsck.fat
-		/mnt/SDCARD/.tmp_update/bin/freemma > NUL
+		/mnt/SDCARD/.tmp_update/script/stop_audioserver.sh > /dev/null 2> /dev/null # we need a maximum of memory available to run fsck.fat
+		/mnt/SDCARD/.tmp_update/bin/freemma > /dev/null
 		echo -ne "\n" \
 			"Please wait during FAT file system integrity check.\n" \
 			"Issues should be fixed automatically.\n" \
@@ -217,7 +217,7 @@ apply_update() {
 		echo "Applying update... "
 
 		umount /mnt/SDCARD/miyoo/app/MainUI 2> /dev/null
-		/mnt/SDCARD/.tmp_update/bin/freemma > NUL
+		/mnt/SDCARD/.tmp_update/bin/freemma > /dev/null
 
 		# unzip -o "$sysdir/download/$Release_Version.zip" -d "/mnt/SDCARD"
 		7z x -aoa -o"/mnt/SDCARD" "$sysdir/download/$Release_Version.zip"

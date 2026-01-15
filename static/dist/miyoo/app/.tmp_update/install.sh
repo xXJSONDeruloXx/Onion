@@ -430,9 +430,20 @@ install_retroarch() {
     rm -f $RA_PACKAGE_VERSION_FILE
 }
 
+unmount_retroarch_binaries() {
+    # Unmount retroarch binary if it's bind-mounted
+    if mount | grep -q "/mnt/SDCARD/RetroArch/retroarch"; then
+        echo "Unmounting retroarch binary..."
+        umount /mnt/SDCARD/RetroArch/retroarch 2>/dev/null || true
+    fi
+}
+
 maybe_remove_retroarch() {
     if [ -f $RA_PACKAGE_FILE ]; then
         cd /mnt/SDCARD/RetroArch
+
+        # Unmount any bind mounts before removing files
+        unmount_retroarch_binaries
 
         tempdir=/mnt/SDCARD/.temp
         mkdir -p $tempdir
