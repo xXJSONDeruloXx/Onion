@@ -1,4 +1,4 @@
-See [here](https://github.com/RdrSeraphim/Onion/blob/ABOUT.md) to see what this repo is about.
+See [here](https://github.com/RdrSeraphim/Onion/blob/main/ABOUT.md) to see what this repo is about.
 
 <p>&nbsp;</p>
 
