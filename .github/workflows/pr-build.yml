@@ -41,4 +41,4 @@ jobs:
         retention-days: 30
         overwrite: true
         include-hidden-files: true
-        path: release/Onion-v${{ env.BUILD_VERSION }}-pr_${{ env.PR_NUMBER }}.zip
+        path: dist/
