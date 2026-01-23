@@ -15,7 +15,7 @@ mkdir -p $radir/cores/cache
 cd $sysdir
 
 device_model=$(cat /tmp/deviceModel)
-has_networking=$([ $device_model -eq 354 ] || [ "$device_model" -eq 285 ] && echo 1 || echo 0)
+has_networking=$([ $device_model -eq 285 ] || [ "$device_model" -eq 354 ] && echo 1 || echo 0)
 
 ROM_TYPE_UNKNOWN=0
 ROM_TYPE_GAME=1
